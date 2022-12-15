@@ -263,7 +263,7 @@ The final step of the project migration is to map your old links with the new on
 1. From your SM repository, if it is not done, publish the release created after the import
 2. Export the documents
 3. Unzip the files and place them in the `exports/sm_docs`
-4. Run `node migrate-links`
+4. Run `node migrate-links.mjs`
 
 </details>
 
