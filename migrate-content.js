@@ -28,24 +28,19 @@ function migrateContent() {
 
           // Handle slices variations using logs
           logs.slice_zones.forEach((sz) => {
-            if (sz.type === fileData.type && fileData[sz.id]) {
-              fileData[sz.id].forEach(function (slice) {
-                slice.value.variation = "default-slice";
-              });
-            }
 
+            // Look for new slices created
             const nSlice = logs.created_slices?.filter(
               (slice) => slice.type === fileData.type
             );
 
+            // Replace legacy values
             let str = JSON.stringify(fileData);
 
-            // Replace legacy values
             str = str.replace('"body":', '"slices":'); // If removed from migrate-cts.mjs, remove this line
             str = str.replaceAll('"repeat":', '"items":');
             str = str.replaceAll('"non-repeat":', '"primary":');
 
-            // Handle new slices
             if (logs.created_slices.length && nSlice.length) {
               nSlice.forEach((item) => {
                 str = str.replaceAll(`"${item.legacy_id}$`, `"${item.new_id}$`);
@@ -53,6 +48,13 @@ function migrateContent() {
             }
 
             fileData = JSON.parse(str);
+
+            // Add variation to all slice zones
+            if (sz.type === fileData.type && fileData[sz.id]) {
+              fileData[sz.id].forEach(function (slice) {
+                slice.value.variation = "default-slice";
+              });
+            }
           });
 
           // If locales exists, handle file name
