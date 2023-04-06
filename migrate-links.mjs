@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 import path from "path";
 import archiver from "archiver";
 import { fileURLToPath } from "url";
-import { createRequire } from 'module';
+import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
 
@@ -14,12 +14,17 @@ dotenv.config();
 // Query old and new repos
 const oldClient = prismic.createClient(
   `https://${process.env.REPO}.cdn.prismic.io/api/v2`,
-  { fetch }
+  {
+    fetch,
+    // accessToken: "Your access token here if API is private",
+  }
 );
-
 const newClient = prismic.createClient(
   `https://${process.env.NEWREPO}.cdn.prismic.io/api/v2`,
-  { fetch }
+  {
+    fetch,
+    // accessToken: "Your access token here if API is private",
+  }
 );
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,7 +33,6 @@ const directoryPath = path.join(__dirname, "exports/sm_docs");
 
 // Build a type comparison table between old documents and new document
 async function getComparisonTable() {
-
   let table = [{ type: null, uid: null, old: null, new: null, lang: null }];
 
   // Get all documents with dangerouslyGetAll
@@ -47,16 +51,26 @@ async function getComparisonTable() {
 
   const newDocuments = await newClient.dangerouslyGetAll({ lang: "*" });
 
-  newDocuments.forEach((element) => {
-    const index = table.findIndex(
-      (line) =>
-        line.uid === element.uid &&
-        line.type === element.type &&
-        line.lang === element.lang
-    );
-    table[index].new = element.id;
-  });
-  return table;
+  const newTable = newDocuments
+    .map((element) => {
+      const index = table.findIndex(
+        (line) =>
+          line.uid === element.uid &&
+          line.type === element.type &&
+          line.lang === element.lang
+      );
+      if (index !== -1) {
+        return {
+          ...table[index],
+          new: element.id,
+        };
+        //newTable[index].new = element.id;
+      }
+      return null;
+    })
+    .filter((line) => line);
+
+  return newTable;
 }
 
 //Update all content relationship links in all new documents from old TYPE documentID to new documentId
@@ -71,13 +85,15 @@ async function updateContentRelationships() {
     //listing all files
     files.forEach(function (file) {
       if (!file.startsWith(".")) {
-
         const fileData = require(path.join(__dirname, "exports/sm_docs", file));
 
         // Look for CR links in primary section
         Object.keys(fileData).forEach(function (field) {
-
-          if (fileData[field].wioUrl !== undefined) {
+          if (
+            fileData[field] &&
+            fileData[field].wioUrl !== undefined &&
+            comparisonTable.find((item) => item.old === fileData[field].id)
+          ) {
             let newContentId = comparisonTable.find(
               (item) => item.old === fileData[field].id
             ).new;
@@ -88,7 +104,13 @@ async function updateContentRelationships() {
           if (Array.isArray(fileData[field])) {
             fileData[field].forEach(function (subField, index) {
               Object.keys(fileData[field][index]).forEach(function (subField) {
-                if (fileData[field][index][subField].wioUrl !== undefined) {
+                if (
+                  fileData[field][index][subField] &&
+                  fileData[field][index][subField].wioUrl !== undefined &&
+                  comparisonTable.find(
+                    (item) => item.old === fileData[field][index][subField].id
+                  )
+                ) {
                   let newContentId = comparisonTable.find(
                     (item) => item.old === fileData[field][index][subField].id
                   ).new;
@@ -96,16 +118,68 @@ async function updateContentRelationships() {
                     "wio://documents/" + newContentId;
                   fileData[field][index][subField].id = newContentId;
                 }
+
+                if (isRichText(fileData[field][index][subField])) {
+                  fileData[field][index][subField].forEach(function (
+                    richTextItem,
+                    richTextIndex
+                  ) {
+                    richTextItem.content.spans.forEach((span, spanIndex) => {
+                      if (
+                        span.data?.wioUrl !== undefined &&
+                        comparisonTable.find(
+                          (item) => item.old === span.data?.id
+                        )
+                      ) {
+                        let newContentId = comparisonTable.find(
+                          (item) => item.old === span.data.id
+                        ).new;
+                        fileData[field][richTextIndex].content.spans[
+                          spanIndex
+                        ].data.wioUrl = "wio://documents/" + newContentId;
+                        fileData[field][richTextIndex].content.spans[
+                          spanIndex
+                        ].data.id = newContentId;
+                      }
+                    });
+                  });
+                }
               });
             });
           }
 
+          if (isRichText(fileData[field])) {
+            fileData[field].forEach(function (richTextItem, richTextIndex) {
+              richTextItem.content.spans.forEach((span, spanIndex) => {
+                if (
+                  span.data?.wioUrl !== undefined &&
+                  comparisonTable.find((item) => item.old === span.data?.id)
+                ) {
+                  let newContentId = comparisonTable.find(
+                    (item) => item.old === span.data.id
+                  ).new;
+                  fileData[field][richTextIndex].content.spans[
+                    spanIndex
+                  ].data.wioUrl = "wio://documents/" + newContentId;
+                  fileData[field][richTextIndex].content.spans[
+                    spanIndex
+                  ].data.id = newContentId;
+                }
+              });
+            });
+          }
         });
 
-        // Look for CR links in slices
+        //Look for CR links in slices
         fileData.slices?.forEach(function (slice) {
           Object.keys(slice.value.primary).forEach(function (field) {
-            if (slice.value.primary[field].wioUrl !== undefined) {
+            if (
+              slice.value.primary[field] &&
+              (slice.value.primary[field].wioUrl !== undefined) &
+                comparisonTable.find(
+                  (item) => item.old === slice.value.primary[field].id
+                )
+            ) {
               let newContentId = comparisonTable.find(
                 (item) => item.old === slice.value.primary[field].id
               ).new;
@@ -113,16 +187,71 @@ async function updateContentRelationships() {
                 "wio://documents/" + newContentId;
               slice.value.primary[field].id = newContentId;
             }
+
+            if (isRichText(slice.value.primary[field])) {
+              slice.value.primary[field].forEach(function (
+                richTextItem,
+                richTextIndex
+              ) {
+                richTextItem.content.spans.forEach((span, spanIndex) => {
+                  if (
+                    span.data?.wioUrl !== undefined &&
+                    comparisonTable.find((item) => item.old === span.data?.id)
+                  ) {
+                    let newContentId = comparisonTable.find(
+                      (item) => item.old === span.data.id
+                    ).new;
+                    slice.value.primary[field][richTextIndex].content.spans[
+                      spanIndex
+                    ].data.wioUrl = "wio://documents/" + newContentId;
+                    slice.value.primary[field][richTextIndex].content.spans[
+                      spanIndex
+                    ].data.id = newContentId;
+                  }
+                });
+              });
+            }
           });
           slice.value.items.forEach(function (field, index) {
             Object.keys(slice.value.items[index]).forEach(function (subField) {
-              if (slice.value.items[index][subField].wioUrl !== undefined) {
+              if (
+                slice.value.items[index][subField] &&
+                slice.value.items[index][subField].wioUrl !== undefined &&
+                comparisonTable.find(
+                  (item) => item.old === slice.value.items[index][subField].id
+                )
+              ) {
                 let newContentId = comparisonTable.find(
                   (item) => item.old === slice.value.items[index][subField].id
                 ).new;
                 slice.value.items[index][subField].wioUrl =
                   "wio://documents/" + newContentId;
                 slice.value.items[index][subField].id = newContentId;
+              }
+
+              if (isRichText(slice.value.items[index][subField])) {
+                slice.value.items[index][subField].forEach(function (
+                  richTextItem,
+                  richTextIndex
+                ) {
+                  richTextItem.content.spans.forEach((span, spanIndex) => {
+                    if (
+                      span.data?.wioUrl !== undefined &&
+                      comparisonTable.find((item) => item.old === span.data?.id)
+                    ) {
+                      let newContentId = comparisonTable.find(
+                        (item) => item.old === span.data.id
+                      ).new;
+                      slice.value.items[index][subField][
+                        richTextIndex
+                      ].content.spans[spanIndex].data.wioUrl =
+                        "wio://documents/" + newContentId;
+                      slice.value.items[index][subField][
+                        richTextIndex
+                      ].content.spans[spanIndex].data.id = newContentId;
+                    }
+                  });
+                });
               }
             });
           });
@@ -165,3 +294,22 @@ async function updateContentRelationships() {
 }
 
 updateContentRelationships();
+
+function isRichText(field) {
+  if (
+    Array.isArray(field) &&
+    field.length > 0 &&
+    (field[0].type === "paragraph" ||
+      field[0].type === "heading1" ||
+      field[0].type === "heading2" ||
+      field[0].type === "heading3" ||
+      field[0].type === "heading4" ||
+      field[0].type === "heading5" ||
+      field[0].type === "heading6" ||
+      field[0].type === "list-item" ||
+      field[0].type === "o-list-item")
+  ) {
+    return true;
+  }
+  return false;
+}
