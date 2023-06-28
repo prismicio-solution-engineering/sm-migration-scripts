@@ -133,11 +133,11 @@ In your legacy project (in production or in an environment), make sure all the d
     
     ```jsx
     REPO=[Your legacy repository id]
-    TOKEN=[Your token]
+    TOKEN=[Your legacy repository token]
     NEWREPO=[Your Slice Machine repository id]
     ```
     
-    The token value can be found in your the new SM repo **Settings > API & Security > Custom Type API tab**
+    The token value can be found in your legacy repository under **Settings > API & Security > Custom Type API tab**
     
 3. Run `node migrate-cts.mjs` . This will generate `slices` and `customtypes` folders containing the migrated slices and custom types
 4. Copy the `slices` and `customtypes` folders and paste them at the root of your NextJS app
