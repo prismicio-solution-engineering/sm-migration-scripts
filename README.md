@@ -97,7 +97,6 @@ In your legacy project (in production or in an environment), make sure all the d
 - Every repeatable custom type must have a UID field set and filled in the associated documents.
 - If UIDs are missing, links won’t be able to be migrated and you will have to manually map and reintegrate them after the process.
 - Note: You can also use another field for reconciliation (you need to edit the script) but UID guarantees uniqueness, though it is recommended
-
 </details>
 
 <br/>
@@ -138,13 +137,20 @@ In your legacy project (in production or in an environment), make sure all the d
     ```
     
     The token value can be found in your legacy repository under **Settings > API & Security > Custom Type API tab**
-    
-3. Run `node migrate-cts.mjs` . This will generate `slices` and `customtypes` folders containing the migrated slices and custom types
-4. Copy the `slices` and `customtypes` folders and paste them at the root of your NextJS app
-5. Run `npm run slicemachine`
-6. Check that all slices and custom types have been generated in Slice Machine
-7. Still in SM, edit a slice and save the data model, it will generate the `slices/index.js` that lists all your slices. (you can then remove this change if you want and save again the data model)
-8. Push to your changes
+3. **Follow this step if you have a mix of SharedSlices and legacy slices**
+    </br> You need to let your Customer success manager know about it.
+    </br> We created an additional script to run before Step 1 in order to avoid errors.    
+    </br> Run `node copy-sm.mjs`.
+    </br> This script fetches SharedSlices (slices created with slice machine) and generate the corresponding files in the `slices/` folder.
+
+4. You need to make sure your project doesn't have a mix of SharedSlices (built with Slice Machine) and legacy slices. If it does, follow the previous step.
+    </br> Run `node migrate-cts.mjs`.
+    </br> This will generate `slices` and `customtypes` folders containing the migrated slices and custom types
+5. Copy the `slices` and `customtypes` folders and paste them at the root of your NextJS app
+6. Run `npm run slicemachine`
+7. Check that all slices and custom types have been generated in Slice Machine
+8. Still in SM, edit a slice and save the data model, it will generate the `slices/index.js` that lists all your slices. (you can then remove this change if you want and save again the data model)
+9. Push to your changes
 </details>
 
 <details>
