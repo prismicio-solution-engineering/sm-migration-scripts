@@ -117,7 +117,7 @@ In your legacy project (in production or in an environment), make sure all the d
         - The first slice will be migrated as it is in `/slices/{key}`,
         - If the other slice have the same structure (same fields) they will be merged.
         - If they do not share the same structure, name and ID, a whole new slice will be created in `/slices/{key}-type_{ct.label}`, named with its id and its type id (`slice_id_type_type_id`)
-        - You can then either keep them separated or  create variations after migration - See [After data model migration](After%20data%20model%20migration%208cd83fb834094d31b605cfff19960c56.md) page
+        - You can then either keep them separated or create variations after migration - See [After migration](#after-migration) section
 - All slices merged or created are then logged in a file used in the next step by the content migration script. This file also has data about the different slice zones available in your custom types.
 </details>
 
